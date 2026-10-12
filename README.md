@@ -18,9 +18,9 @@ The BlackShark V3 isn't in OpenRazer yet. Build it from [PR #2794](https://githu
 
 ## Install
 
-    go install github.com/bulkinglb/razer-terminal@latest
+    curl -fsSL https://raw.githubusercontent.com/bulkinglb/razer-terminal/master/install.sh | sh
 
-Or from a checkout, `make install` puts it in `~/.local/bin`.
+This puts the latest release in `/usr/local/bin`; end it with `| INSTALL_DIR=~/.local/bin sh` to skip sudo. With Go: `go install github.com/bulkinglb/razer-terminal@latest`. From a checkout, `make install` puts it in `~/.local/bin`.
 
 ## Use
 

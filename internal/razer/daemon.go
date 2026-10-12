@@ -36,6 +36,13 @@ func daemonSettings(obj dbus.BusObject) []Setting {
 	call := func(method string, args ...any) error { return obj.Call(method, 0, args...).Err }
 	maxDPI := int32(16000)
 	obj.Call("razer.device.dpi.maxDPI", 0).Store(&maxDPI)
+	// The daemon's default for devices that don't list their rates.
+	rates := []uint16{125, 500, 1000}
+	obj.Call("razer.device.misc.getSupportedPollRates", 0).Store(&rates)
+	var pollRates []Option
+	for _, r := range rates {
+		pollRates = append(pollRates, Option{fmt.Sprintf("%d HZ", r), int(r)})
+	}
 	settings := []Setting{
 		{Section: "SENSOR", Label: "DPI", Min: 100, Max: int(maxDPI), Step: 100,
 			Get: func() (int, error) {
@@ -48,7 +55,7 @@ func daemonSettings(obj dbus.BusObject) []Setting {
 			Set: func(v int) error { return call("razer.device.dpi.setDPI", uint16(v), uint16(v)) }},
 		{Section: "SENSOR", Label: "POLLING RATE", Get: getInt(obj, "razer.device.misc.getPollRate"),
 			Set:     func(v int) error { return call("razer.device.misc.setPollRate", uint16(v)) },
-			Options: []Option{{"125 HZ", 125}, {"500 HZ", 500}, {"1000 HZ", 1000}}},
+			Options: pollRates},
 		{Section: "POWER", Label: "BATTERY", Format: func(v int) string { return fmt.Sprintf("%d%%", v) },
 			Get: getFloat(obj, "razer.device.power.getBattery")},
 	}

@@ -1,7 +1,11 @@
 package razer
 
 import (
+	"errors"
 	"fmt"
+	"slices"
+	"strconv"
+	"time"
 
 	"github.com/godbus/dbus/v5"
 )
@@ -56,12 +60,93 @@ func daemonSettings(obj dbus.BusObject) []Setting {
 		{Section: "SENSOR", Label: "POLLING RATE", Get: getInt(obj, "razer.device.misc.getPollRate"),
 			Set:     func(v int) error { return call("razer.device.misc.setPollRate", uint16(v)) },
 			Options: pollRates},
-		{Section: "POWER", Label: "BATTERY", Format: func(v int) string { return fmt.Sprintf("%d%%", v) },
-			Get: getFloat(obj, "razer.device.power.getBattery")},
 	}
+	settings = append(settings, dpiStages(obj, int(maxDPI))...)
+	settings = append(settings,
+		Setting{Section: "SCROLL", Label: "MODE", Get: getInt(obj, "razer.device.scroll.getScrollMode"),
+			Set:     func(v int) error { return call("razer.device.scroll.setScrollMode", byte(v)) },
+			Options: []Option{{"TACTILE", 0}, {"FREE SPIN", 1}}},
+		Setting{Section: "SCROLL", Label: "ACCELERATION", Options: onOff, Get: getBool(obj, "razer.device.scroll.getScrollAcceleration"),
+			Set: func(v int) error { return call("razer.device.scroll.setScrollAcceleration", v == 1) }},
+		Setting{Section: "SCROLL", Label: "SMART REEL", Options: onOff, Get: getBool(obj, "razer.device.scroll.getScrollSmartReel"),
+			Set: func(v int) error { return call("razer.device.scroll.setScrollSmartReel", v == 1) }},
+		Setting{Section: "POWER", Label: "BATTERY", Format: func(v int) string { return fmt.Sprintf("%d%%", v) },
+			Get: getFloat(obj, "razer.device.power.getBattery")},
+	)
 	settings = append(settings, lighting(obj, "LIGHTING", "razer.device.lighting.chroma", "", "razer.device.lighting.brightness")...)
 	settings = append(settings, lighting(obj, "LOGO", "razer.device.lighting.logo", "Logo", "razer.device.lighting.logo")...)
 	return append(settings, lighting(obj, "SCROLL WHEEL", "razer.device.lighting.scroll", "Scroll", "razer.device.lighting.scroll")...)
+}
+
+type dpiStage struct{ X, Y uint16 }
+
+func dpiStages(obj dbus.BusObject, maxDPI int) []Setting {
+	// A garbled reply reads as no stages, and writing on top of it would drop the real ones.
+	read := func() (byte, []dpiStage, error) {
+		for range 3 {
+			var r struct {
+				Active byte
+				Stages []dpiStage
+			}
+			err := obj.Call("razer.device.dpi.getDPIStages", 0).Store(&r)
+			if err != nil || len(r.Stages) > 0 {
+				return r.Active, r.Stages, err
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		return 0, nil, errors.New("the mouse didn't report its DPI stages")
+	}
+	format := func(v int) string {
+		if v == 0 {
+			return "OFF"
+		}
+		return strconv.Itoa(v)
+	}
+	var settings []Setting
+	for i := range 5 {
+		settings = append(settings, Setting{Section: "DPI STAGES", Label: fmt.Sprintf("STAGE %d", i+1),
+			Min: 0, Max: maxDPI, Step: 100, Format: format,
+			Get: func() (int, error) {
+				_, stages, err := read()
+				if err != nil || i >= len(stages) {
+					return 0, err
+				}
+				return int(stages[i].X), nil
+			},
+			Set: func(v int) error {
+				active, stages, err := read()
+				if err != nil {
+					return err
+				}
+				active, stages, err = editStage(active, stages, i, v)
+				if err != nil || stages == nil {
+					return err
+				}
+				return obj.Call("razer.device.dpi.setDPIStages", 0, active, stages).Err
+			}})
+	}
+	return settings
+}
+
+// The mouse jumps to the active stage on every write, so the edited stage becomes active.
+func editStage(active byte, stages []dpiStage, i, dpi int) (byte, []dpiStage, error) {
+	switch {
+	case dpi == 0 && i >= len(stages):
+		return active, nil, nil
+	case i > len(stages):
+		return active, nil, fmt.Errorf("set stage %d first", len(stages)+1)
+	case dpi == 0 && len(stages) == 1:
+		return active, nil, errors.New("the mouse needs at least one stage")
+	case dpi == 0:
+		stages = slices.Delete(slices.Clone(stages), i, i+1)
+		return min(active, byte(len(stages))), stages, nil
+	}
+	stages = slices.Clone(stages)
+	if i == len(stages) {
+		stages = append(stages, dpiStage{})
+	}
+	stages[i] = dpiStage{uint16(dpi), uint16(dpi)}
+	return byte(i + 1), stages, nil
 }
 
 var effects = []string{"spectrum", "wave", "static"}
@@ -125,5 +210,18 @@ func getFloat(obj dbus.BusObject, method string) func() (int, error) {
 			return Unknown, err
 		}
 		return int(v + 0.5), nil
+	}
+}
+
+func getBool(obj dbus.BusObject, method string) func() (int, error) {
+	return func() (int, error) {
+		var v bool
+		if err := obj.Call(method, 0).Store(&v); err != nil {
+			return Unknown, err
+		}
+		if v {
+			return 1, nil
+		}
+		return 0, nil
 	}
 }

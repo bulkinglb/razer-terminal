@@ -59,6 +59,8 @@ func headsetSettings(dir string) []Setting {
 			Options: []Option{{"15 MIN", 15}, {"30 MIN", 30}, {"45 MIN", 45}, {"60 MIN", 60}}},
 		{Section: "HEADSET", Label: "AUDIO PROMPTS", Options: onOff,
 			Get: get("audio_prompts"), Set: set("audio_prompts")},
+		{Section: "HEADSET", Label: "DONGLE LED", Get: get("indicator_led"), Set: set("indicator_led"),
+			Options: []Option{{"CONNECTION", 0}, {"BATTERY", 1}, {"LOW BATTERY", 2}}},
 		{Section: "HEADSET", Label: "FUNCTION BUTTON", Get: get("audio_function_button"), Set: set("audio_function_button"),
 			Options: []Option{{"GAME / CHAT", 0}, {"SIDETONE", 1}, {"FOOTSTEPS", 2}, {"BT VOLUME", 3}}},
 	}

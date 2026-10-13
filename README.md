@@ -1,6 +1,6 @@
 # razer-terminal
 
-A terminal UI for Razer devices on Linux: headset EQ, sidetone and game/chat balance, mouse DPI, polling rate and lighting, all in one place. Built on [OpenRazer](https://openrazer.github.io).
+A terminal UI for Razer devices on Linux: headset EQ, sidetone and game/chat balance, mouse DPI, polling rate, scroll wheel and lighting, all in one place. Built on [OpenRazer](https://openrazer.github.io).
 
 Tested with a BlackShark V3 (2.4 GHz dongle) and a Basilisk V3.
 
@@ -26,6 +26,6 @@ This puts the latest release in `/usr/local/bin`; end it with `| INSTALL_DIR=~/.
 
     razer-terminal
 
-↑↓ select, ←→ change, shift+←→ fine steps, tab switches device, r rereads, q quits. Changes apply right away. A headset value shows UNKNOWN until the headset reports it or you set it.
+↑↓ select, ←→ change, shift+←→ fine steps, tab switches device, r rereads, q quits. Changes apply right away. A headset value shows UNKNOWN until the headset reports it or you set it. Setting a DPI stage to OFF removes it, and editing a stage switches the mouse to it.
 
 MIT license.

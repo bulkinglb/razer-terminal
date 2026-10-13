@@ -53,3 +53,27 @@ func TestSetEQPresetChecksSlot(t *testing.T) {
 		t.Errorf("headphone_eq changed to %q", b)
 	}
 }
+
+func TestLowLatencyRemembersWrite(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "ultra_low_latency")
+	os.WriteFile(path, []byte("1\n"), 0o644)
+	var ull Setting
+	for _, s := range headsetSettings(filepath.Dir(path)) {
+		if s.Label == "ULTRA-LOW LATENCY" {
+			ull = s
+		}
+	}
+	os.WriteFile(path, []byte("0\n"), 0o644) // later reads must not hit the file
+	if v, err := ull.Get(); v != 1 || err != nil {
+		t.Fatalf("before a write: %d, %v; want the startup value 1", v, err)
+	}
+	if err := ull.Set(0); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ := ull.Get(); v != 0 {
+		t.Errorf("after writing 0: %d", v)
+	}
+	if b, _ := os.ReadFile(path); string(b) != "0" {
+		t.Errorf("file holds %q, want 0", b)
+	}
+}

@@ -31,12 +31,13 @@ func headsetSettings(dir string) []Setting {
 	set := func(name string) func(int) error {
 		return func(v int) error { return writeInt(filepath.Join(dir, name), v) }
 	}
+	ullPath := filepath.Join(dir, "ultra_low_latency")
+	ull, _ := readInt(ullPath)
+	ullGet, ullSet := remember(ullPath, ull)
 	return []Setting{
 		{Section: "SOUND", Label: "EQ PRESET", Get: get("headphone_eq"),
 			Set:     func(v int) error { return setEQPreset(dir, v) },
 			Options: []Option{{"DEFAULT", 0}, {"GAME", 1}, {"MOVIE", 2}, {"MUSIC", 3}, {"ESPORTS", 4}}},
-		{Section: "SOUND", Label: "THX SPATIAL AUDIO", Options: onOff,
-			Get: get("thx_spatial_audio"), Set: set("thx_spatial_audio")},
 		{Section: "SOUND", Label: "GAME / CHAT BALANCE", Min: 0, Max: 20, Step: 1, Format: balance,
 			Get: get("game_chat_balance"), Set: set("game_chat_balance")},
 		{Section: "SOUND", Label: "BLUETOOTH CALL MIX", Get: get("in_call_audio_mix"), Set: set("in_call_audio_mix"),
@@ -53,15 +54,30 @@ func headsetSettings(dir string) []Setting {
 			Get: func() (int, error) { return battery(filepath.Join(dir, "charge_level")) }},
 		{Section: "HEADSET", Label: "CHARGING", Get: get("charge_status"),
 			Options: []Option{{"NO", 0}, {"YES", 1}}},
-		{Section: "HEADSET", Label: "ULTRA-LOW LATENCY", Options: onOff,
-			Get: get("ultra_low_latency"), Set: set("ultra_low_latency")},
+		{Section: "HEADSET", Label: "ULTRA-LOW LATENCY", Options: onOff, Get: ullGet, Set: ullSet},
 		{Section: "HEADSET", Label: "AUTO POWER OFF", Get: get("wireless_power_save"), Set: set("wireless_power_save"),
 			Options: []Option{{"15 MIN", 15}, {"30 MIN", 30}, {"45 MIN", 45}, {"60 MIN", 60}}},
 		{Section: "HEADSET", Label: "AUDIO PROMPTS", Options: onOff,
 			Get: get("audio_prompts"), Set: set("audio_prompts")},
 		{Section: "HEADSET", Label: "FUNCTION BUTTON", Get: get("audio_function_button"), Set: set("audio_function_button"),
-			Options: []Option{{"SIDETONE", 1}, {"FOOTSTEPS", 2}}},
+			Options: []Option{{"GAME / CHAT", 0}, {"SIDETONE", 1}, {"FOOTSTEPS", 2}, {"BT VOLUME", 3}}},
 	}
+}
+
+// remember serves reads from the last write; polling the file sends a command to the headset.
+func remember(path string, v int) (func() (int, error), func(int) error) {
+	get := func() (int, error) {
+		_, err := os.Stat(path)
+		return v, err
+	}
+	set := func(n int) error {
+		if err := writeInt(path, n); err != nil {
+			return err
+		}
+		v = n
+		return nil
+	}
+	return get, set
 }
 
 // Writing a preset also stores its bands, so a wrong read-back would overwrite it.

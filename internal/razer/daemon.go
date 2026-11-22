@@ -151,6 +151,10 @@ func editStage(active byte, stages []dpiStage, i, dpi int) (byte, []dpiStage, er
 
 var effects = []string{"spectrum", "wave", "static"}
 
+// Colors are packed 0xRRGGBB; one the mouse reports outside this list shows as hex.
+var colors = []Option{{"RED", 0xFF0000}, {"ORANGE", 0xFF8000}, {"YELLOW", 0xFFFF00}, {"GREEN", 0x00FF00},
+	{"CYAN", 0x00FFFF}, {"BLUE", 0x0000FF}, {"PURPLE", 0x8000FF}, {"PINK", 0xFF0080}, {"WHITE", 0xFFFFFF}}
+
 func lighting(obj dbus.BusObject, section, iface, zone, brightnessIface string) []Setting {
 	method := func(verb, name string) string { return iface + "." + verb + zone + name }
 	call := func(method string, args ...any) error { return obj.Call(method, 0, args...).Err }
@@ -182,14 +186,28 @@ func lighting(obj dbus.BusObject, section, iface, zone, brightnessIface string) 
 					obj.Call(method("get", "WaveDir"), 0).Store(&dir)
 					return call(method("set", "Wave"), dir)
 				}
-				// shortcut: static reuses the zone's last color, add a color picker when one is wanted
-				var colors []byte
-				obj.Call(method("get", "EffectColors"), 0).Store(&colors)
-				if len(colors) < 3 {
-					colors = []byte{0, 255, 0}
+				// Static keeps the zone's color; the STATIC COLOR row changes it.
+				var rgb []byte
+				obj.Call(method("get", "EffectColors"), 0).Store(&rgb)
+				if len(rgb) < 3 {
+					rgb = []byte{0, 255, 0}
 				}
-				return call(method("set", "Static"), colors[0], colors[1], colors[2])
+				return call(method("set", "Static"), rgb[0], rgb[1], rgb[2])
 			}},
+		// Linked because picking a color switches the effect to static.
+		{Section: section, Label: "STATIC COLOR", Options: colors, Linked: true,
+			Format: func(v int) string { return fmt.Sprintf("#%06X", v) },
+			Get: func() (int, error) {
+				var rgb []byte
+				if err := obj.Call(method("get", "EffectColors"), 0).Store(&rgb); err != nil {
+					return Unknown, err
+				}
+				if len(rgb) < 3 {
+					return Unknown, errors.New("the zone didn't report a color")
+				}
+				return int(rgb[0])<<16 | int(rgb[1])<<8 | int(rgb[2]), nil
+			},
+			Set: func(v int) error { return call(method("set", "Static"), byte(v>>16), byte(v>>8), byte(v)) }},
 	}
 }
 

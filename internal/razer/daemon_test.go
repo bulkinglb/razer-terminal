@@ -3,7 +3,44 @@ package razer
 import (
 	"slices"
 	"testing"
+
+	"github.com/godbus/dbus/v5"
 )
+
+// fakeObj answers D-Bus calls from replies and records the rest.
+type fakeObj struct {
+	dbus.BusObject
+	replies map[string][]any
+	calls   []string
+	args    [][]any
+}
+
+func (f *fakeObj) Call(method string, _ dbus.Flags, args ...any) *dbus.Call {
+	f.calls, f.args = append(f.calls, method), append(f.args, args)
+	return &dbus.Call{Body: f.replies[method]}
+}
+
+func TestStaticColor(t *testing.T) {
+	obj := &fakeObj{replies: map[string][]any{
+		"razer.device.lighting.logo.getLogoEffectColors": {[]byte{0, 255, 0, 0, 0, 0}},
+	}}
+	var color Setting
+	for _, s := range lighting(obj, "LOGO", "razer.device.lighting.logo", "Logo", "razer.device.lighting.logo") {
+		if s.Label == "STATIC COLOR" {
+			color = s
+		}
+	}
+	if v, err := color.Get(); v != 0x00FF00 || err != nil {
+		t.Fatalf("got %06X %v, want the reported green", v, err)
+	}
+	if err := color.Set(0x8000FF); err != nil {
+		t.Fatal(err)
+	}
+	last := len(obj.calls) - 1
+	if obj.calls[last] != "razer.device.lighting.logo.setLogoStatic" || !slices.Equal(obj.args[last], []any{byte(0x80), byte(0), byte(0xFF)}) {
+		t.Errorf("set sent %s %v, want setLogoStatic 128 0 255", obj.calls[last], obj.args[last])
+	}
+}
 
 func TestEditStage(t *testing.T) {
 	two := []dpiStage{{800, 800}, {1600, 1600}}

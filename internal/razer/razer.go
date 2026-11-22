@@ -15,6 +15,7 @@ type Setting struct {
 	Format         func(int) string
 	Get            func() (int, error)
 	Set            func(int) error // nil means read-only
+	Linked         bool            // a write can change other rows, so the device is reread after it
 }
 
 type Device struct {

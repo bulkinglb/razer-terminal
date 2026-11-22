@@ -108,6 +108,10 @@ func (m model) adjust(dir int, fine bool) model {
 		m.status = "WRITE FAILED: " + err.Error()
 		return m
 	}
+	// Only linked rows reread everything; on a mouse each read is a USB round trip.
+	if s.Linked {
+		m.refresh(m.tab)
+	}
 	m.values[m.tab][m.row] = v
 	m.status = ""
 	return m

@@ -30,3 +30,26 @@ func TestNext(t *testing.T) {
 		}
 	}
 }
+
+func TestLinkedRereads(t *testing.T) {
+	// Editing a DPI stage makes it the active one, so the DPI row changes too.
+	dpi := 800
+	get := func() (int, error) { return dpi, nil }
+	stage := razer.Setting{Min: 0, Max: 2000, Step: 100, Linked: true, Get: get,
+		Set: func(v int) error { dpi = v; return nil }}
+	plain := stage
+	plain.Linked = false
+	shown := razer.Setting{Get: get}
+
+	for _, tt := range []struct {
+		s    razer.Setting
+		want int
+	}{{stage, 900}, {plain, 800}} {
+		dpi = 800
+		m := newModel([]razer.Device{{Name: "mouse", Settings: []razer.Setting{tt.s, shown}}}, "")
+		m = m.adjust(1, false)
+		if m.values[0][0] != 900 || m.values[0][1] != tt.want {
+			t.Errorf("linked=%v: rows show %v, want [900 %d]", tt.s.Linked, m.values[0], tt.want)
+		}
+	}
+}

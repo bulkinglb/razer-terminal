@@ -105,7 +105,7 @@ func dpiStages(obj dbus.BusObject, maxDPI int) []Setting {
 	var settings []Setting
 	for i := range 5 {
 		settings = append(settings, Setting{Section: "DPI STAGES", Label: fmt.Sprintf("STAGE %d", i+1),
-			Min: 0, Max: maxDPI, Step: 100, Format: format,
+			Min: 0, Max: maxDPI, Step: 100, Format: format, Linked: true,
 			Get: func() (int, error) {
 				_, stages, err := read()
 				if err != nil || i >= len(stages) {
